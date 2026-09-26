@@ -6,14 +6,14 @@
   <title>HelpDeskOS</title>
 
   <!-- React & React DOM -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 
   <!-- Babel Compiler for JSX -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
@@ -93,6 +93,7 @@
     const TrendingUp = (p) => <Icon name="trending-up" {...p} />;
     const Activity = (p) => <Icon name="activity" {...p} />;
     const Zap = (p) => <Icon name="zap" {...p} />;
+    const KeyRound = (p) => <Icon name="key-round" {...p} />;
 
     /* ======================================================================
        DESIGN TOKENS
@@ -157,13 +158,13 @@
     ];
 
     const INITIAL_USERS = [
-      { id: "u1", name: "Vathanakboth Ly", email: "vathanakboth.ly@camsolutions.com", role: "Customer", dept: "Finance", status: "Active", avatarColor: COLORS.blue },
-      { id: "u2", name: "Sokny San", email: "sokny.san@camsolutions.com", role: "Agent", dept: "IT Support", team: "Network Team", status: "Active", avatarColor: COLORS.primary },
-      { id: "u7", name: "Panha Noeun", email: "panha.noeun@camsolutions.com", role: "Customer", dept: "Marketing", status: "Active", avatarColor: COLORS.blue },
-      { id: "u3", name: "Nisa Na", email: "nisa.na@camsolutions.com", role: "Agent", dept: "IT Support", team: "Software Team", status: "Active", avatarColor: COLORS.violet },
-      { id: "u4", name: "Ravith Voeun", email: "ravith.voeun@camsolutions.com", role: "Team Leader", dept: "IT Support", team: "Software Team", status: "Active", avatarColor: COLORS.amber },
-      { id: "u5", name: "Sophanith Yorn", email: "sophanith.yorn@camsolutions.com", role: "Administrator", dept: "IT Support", status: "Active", avatarColor: COLORS.red },
-      { id: "u6", name: "Panha Chea", email: "panha.chea@camsolutions.com", role: "Customer", dept: "Marketing", status: "Active", avatarColor: COLORS.blue },
+      { id: "u1", name: "Vathanakboth Ly", email: "vathanakboth.ly@helpdesk.com", password: "Customer#01", role: "Customer", dept: "Finance", status: "Active", avatarColor: COLORS.blue },
+      { id: "u2", name: "Sokny San", email: "sokny.san@helpdesk.com", password: "Agent#02", role: "Agent", dept: "IT Support", team: "Network Team", status: "Active", avatarColor: COLORS.primary },
+      { id: "u7", name: "Panha Noeun", email: "panha.noeun@helpdesk.com", password: "Customer#07", role: "Customer", dept: "Marketing", status: "Active", avatarColor: COLORS.blue },
+      { id: "u3", name: "Nisa Na", email: "nisa.na@helpdesk.com", password: "Agent#03", role: "Agent", dept: "IT Support", team: "Software Team", status: "Active", avatarColor: COLORS.violet },
+      { id: "u4", name: "Ravith Voeun", email: "ravith.voeun@helpdesk.com", password: "Leader#04", role: "Team Leader", dept: "IT Support", team: "Software Team", status: "Active", avatarColor: COLORS.amber },
+      { id: "u5", name: "Sophanith Yorn", email: "sophanith.yorn@helpdesk.com", password: "Admin#05", role: "Administrator", dept: "IT Support", status: "Active", avatarColor: COLORS.red },
+      { id: "u6", name: "Panha Chea", email: "panha.chea@helpdesk.com", password: "Customer#06", role: "Customer", dept: "Marketing", status: "Active", avatarColor: COLORS.blue },
     ];
 
     const now = Date.now();
@@ -490,23 +491,28 @@
       const [showPw, setShowPw] = useState(false);
       const [error, setError] = useState("");
       const [selectedRole, setSelectedRole] = useState("Customer");
+      const [showRoster, setShowRoster] = useState(false);
 
-      const roleUser = useMemo(() => users.find((u) => u.role === selectedRole), [selectedRole, users]);
+      const roleUsers = useMemo(() => users.filter((u) => u.role === selectedRole), [selectedRole, users]);
+      const roleUser = roleUsers[0];
 
       function submit(e) {
         e.preventDefault();
         if (!email || !password) { setError("Please enter both email and password."); return; }
-        const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || roleUser;
+        const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
         if (!user) { setError("No account found with that email."); return; }
+        if (password !== user.password) { setError("Incorrect password."); return; }
         if (user.status === "Blocked") { setError("This account has been blocked. Contact an administrator."); return; }
         if (user.status === "Inactive") { setError("This account is inactive. Contact an administrator."); return; }
         setError("");
         onLogin(user);
       }
 
-      function quickLogin(role) {
-        const u = users.find((x) => x.role === role);
-        onLogin(u);
+      function fillCredentials(u) {
+        setSelectedRole(u.role);
+        setEmail(u.email);
+        setPassword(u.password);
+        setError("");
       }
 
       return (
@@ -534,13 +540,13 @@
             </div>
           </div>
 
-          <div style={{ flex: 1, background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center", borderTopLeftRadius: 28, borderBottomLeftRadius: 28 }}>
-            <div style={{ width: "100%", maxWidth: 380 }}>
+          <div style={{ flex: 1, background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center", borderTopLeftRadius: 28, borderBottomLeftRadius: 28, padding: "40px 20px" }}>
+            <div style={{ width: "100%", maxWidth: 400 }}>
               <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.ink, margin: "0 0 4px" }}>Sign in</h2>
-              <p style={{ color: COLORS.muted, fontSize: 13, margin: "0 0 24px" }}>Use a demo account below or pick a role and continue.</p>
+              <p style={{ color: COLORS.muted, fontSize: 13, margin: "0 0 24px" }}>This is a demo system — pick any account below and its credentials will fill in automatically.</p>
 
               <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <Select label="Sign in as" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setEmail(""); }}>
+                <Select label="Sign in as (role)" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setEmail(""); setPassword(""); }}>
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </Select>
                 <Input label="Username / Email" placeholder={roleUser?.email} value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -557,18 +563,6 @@
                 )}
                 <Button type="submit" style={{ justifyContent: "center", marginTop: 6 }}>Sign in <ChevronRight size={15} /></Button>
               </form>
-
-              <div style={{ marginTop: 22, paddingTop: 18, borderTop: `1px solid ${COLORS.line}` }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Quick demo login</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {ROLES.map((r) => (
-                    <button key={r} onClick={() => quickLogin(r)} style={{
-                      fontFamily: FONT_BODY, fontSize: 12, fontWeight: 600, padding: "7px 12px", borderRadius: 7,
-                      border: `1px solid ${COLORS.line}`, background: "#fff", cursor: "pointer", color: COLORS.inkSoft,
-                    }}>{r}</button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -1268,12 +1262,13 @@
        USER MANAGEMENT (Admin)
        ====================================================================== */
     function UserFormModal({ user, onClose, onSave }) {
-      const [f, setF] = useState(user || { name: "", email: "", role: "Customer", dept: "", team: "", status: "Active" });
+      const [f, setF] = useState(user || { name: "", email: "", password: "", role: "Customer", dept: "", team: "", status: "Active" });
       const [errors, setErrors] = useState({});
       function submit() {
         const errs = {};
         if (!f.name.trim()) errs.name = "Full name is required.";
         if (!f.email.trim() || !f.email.includes("@")) errs.email = "A valid email is required.";
+        if (!f.password || !f.password.trim()) errs.password = "A password is required.";
         if (Object.keys(errs).length) { setErrors(errs); return; }
         onSave(f);
       }
@@ -1284,6 +1279,8 @@
             {errors.name && <FieldError text={errors.name} />}
             <Input label="Email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
             {errors.email && <FieldError text={errors.email} />}
+            <Input label="Password" value={f.password || ""} onChange={(e) => setF({ ...f, password: e.target.value })} />
+            {errors.password && <FieldError text={errors.password} />}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Select label="Role" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
                 {ROLES.map((r) => <option key={r}>{r}</option>)}
@@ -1308,6 +1305,7 @@
     function UserManagement({ users, setUsers }) {
       const [showForm, setShowForm] = useState(false);
       const [editing, setEditing] = useState(null);
+      const [revealed, setRevealed] = useState({});
 
       function saveUser(data) {
         if (editing) {
@@ -1331,7 +1329,7 @@
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.line}`, textAlign: "left" }}>
-                  {["User", "Role", "Department / Team", "Status", ""].map((h) => (
+                  {["User", "Role", "Department / Team", "Password", "Status", ""].map((h) => (
                     <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase" }}>{h}</th>
                   ))}
                 </tr>
@@ -1350,6 +1348,12 @@
                     </td>
                     <td style={{ padding: "10px 14px", fontSize: 12.5, color: COLORS.inkSoft }}>{u.role}</td>
                     <td style={{ padding: "10px 14px", fontSize: 12.5, color: COLORS.inkSoft }}>{u.dept}{u.team ? ` · ${u.team}` : ""}</td>
+                    <td style={{ padding: "10px 14px" }}>
+                      <button onClick={() => setRevealed((r) => ({ ...r, [u.id]: !r[u.id] }))} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                        <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLORS.inkSoft }}>{revealed[u.id] ? u.password : "••••••••"}</span>
+                        {revealed[u.id] ? <EyeOff size={13} color={COLORS.muted} /> : <Eye size={13} color={COLORS.muted} />}
+                      </button>
+                    </td>
                     <td style={{ padding: "10px 14px" }}>
                       <Badge color={u.status === "Active" ? COLORS.green : u.status === "Inactive" ? COLORS.muted : COLORS.red} bg={u.status === "Active" ? COLORS.greenSoft : u.status === "Inactive" ? COLORS.bg : COLORS.redSoft}>{u.status}</Badge>
                     </td>
@@ -1684,15 +1688,31 @@
       const [f, setF] = useState({ name: user.name, email: user.email, dept: user.dept || "", position: user.position || "" });
       const [editing, setEditing] = useState(false);
       const [saved, setSaved] = useState(false);
+      const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+      const [pwEditing, setPwEditing] = useState(false);
+      const [pwError, setPwError] = useState("");
+      const [pwSaved, setPwSaved] = useState(false);
+
       function save() {
         onUpdate(f);
         setEditing(false); setSaved(true);
         setTimeout(() => setSaved(false), 2200);
       }
+
+      function savePassword() {
+        if (pwForm.current !== user.password) { setPwError("Current password is incorrect."); return; }
+        if (!pwForm.next.trim()) { setPwError("Enter a new password."); return; }
+        if (pwForm.next !== pwForm.confirm) { setPwError("New passwords don't match."); return; }
+        onUpdate({ password: pwForm.next });
+        setPwError(""); setPwEditing(false); setPwSaved(true);
+        setPwForm({ current: "", next: "", confirm: "" });
+        setTimeout(() => setPwSaved(false), 2200);
+      }
+
       return (
         <div style={{ maxWidth: 520 }}>
           <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: "0 0 18px", color: COLORS.ink }}>My Profile</h1>
-          <Card style={{ padding: 22 }}>
+          <Card style={{ padding: 22, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
               <Avatar user={user} size={56} />
               <div>
@@ -1720,6 +1740,31 @@
                 <DetailRow label="Account status" value={<Badge color={COLORS.green} bg={COLORS.greenSoft}>{user.status}</Badge>} />
                 <Button style={{ marginTop: 14 }} variant="secondary" onClick={() => setEditing(true)}>Edit profile</Button>
                 {saved && <span style={{ marginLeft: 10, fontSize: 12, color: COLORS.green, fontWeight: 600 }}><CheckCircle2 size={13} style={{ verticalAlign: -2, marginRight: 3 }} />Profile updated</span>}
+              </div>
+            )}
+          </Card>
+
+          <Card style={{ padding: 22 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <KeyRound size={17} color={COLORS.ink} />
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 600, color: COLORS.ink }}>Password</div>
+            </div>
+            {pwEditing ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <Input label="Current password" type="password" value={pwForm.current} onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })} />
+                <Input label="New password" type="password" value={pwForm.next} onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })} />
+                <Input label="Confirm new password" type="password" value={pwForm.confirm} onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })} />
+                {pwError && <FieldError text={pwError} />}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <Button variant="secondary" onClick={() => { setPwEditing(false); setPwError(""); setPwForm({ current: "", next: "", confirm: "" }); }}>Cancel</Button>
+                  <Button onClick={savePassword}>Update password</Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <DetailRow label="Current password" value={<span style={{ fontFamily: FONT_MONO }}>{user.password}</span>} />
+                <Button style={{ marginTop: 14 }} variant="secondary" onClick={() => setPwEditing(true)}>Change password</Button>
+                {pwSaved && <span style={{ marginLeft: 10, fontSize: 12, color: COLORS.green, fontWeight: 600 }}><CheckCircle2 size={13} style={{ verticalAlign: -2, marginRight: 3 }} />Password updated</span>}
               </div>
             )}
           </Card>
