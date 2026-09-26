@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HelpDeskOS</title>
+
+  <!-- React & React DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel Compiler for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button { font-family: inherit; }
+    input, textarea, select { font-family: inherit; }
+    ::placeholder { color: #A6AFBC; }
+    @media (max-width: 880px) {
+      .hd-sidebar { left: -226px !important; box-shadow: 0 0 0 100vmax rgba(0,0,0,0); }
+      .hd-main { margin-left: 0 !important; }
+      .hd-topbar { display: flex !important; }
+      .hd-dash-grid, .hd-ticket-grid { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useCallback, useRef, useEffect } = React;
+
+    /* ======================================================================
+       LUCIDE ICON WRAPPER FOR VANILLA REACT
+       ====================================================================== */
+    const Icon = ({ name, size = 16, color = "currentColor", style = {} }) => {
+      const iconRef = useRef(null);
+
+      useEffect(() => {
+        if (iconRef.current) {
+          iconRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
+          lucide.createIcons({
+            attrs: {
+              width: size,
+              height: size,
+              stroke: color
+            },
+            nameAttr: 'data-lucide'
+          });
+        }
+      }, [name, size, color]);
+
+      return <span ref={iconRef} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }} />;
+    };
+
+    const LayoutDashboard = (p) => <Icon name="layout-dashboard" {...p} />;
+    const TicketIcon = (p) => <Icon name="ticket" {...p} />;
+    const Users = (p) => <Icon name="users" {...p} />;
+    const Tag = (p) => <Icon name="tag" {...p} />;
+    const ShieldCheck = (p) => <Icon name="shield-check" {...p} />;
+    const BookOpen = (p) => <Icon name="book-open" {...p} />;
+    const Bell = (p) => <Icon name="bell" {...p} />;
+    const BarChart3 = (p) => <Icon name="bar-chart-3" {...p} />;
+    const Settings = (p) => <Icon name="settings" {...p} />;
+    const LogOut = (p) => <Icon name="log-out" {...p} />;
+    const Plus = (p) => <Icon name="plus" {...p} />;
+    const Search = (p) => <Icon name="search" {...p} />;
+    const Paperclip = (p) => <Icon name="paperclip" {...p} />;
+    const Send = (p) => <Icon name="send" {...p} />;
+    const ChevronRight = (p) => <Icon name="chevron-right" {...p} />;
+    const ChevronDown = (p) => <Icon name="chevron-down" {...p} />;
+    const X = (p) => <Icon name="x" {...p} />;
+    const Star = (p) => <Icon name="star" {...p} />;
+    const AlertTriangle = (p) => <Icon name="alert-triangle" {...p} />;
+    const CheckCircle2 = (p) => <Icon name="check-circle-2" {...p} />;
+    const Clock = (p) => <Icon name="clock" {...p} />;
+    const ArrowUpCircle = (p) => <Icon name="arrow-up-circle" {...p} />;
+    const RotateCcw = (p) => <Icon name="rotate-ccw" {...p} />;
+    const Lock = (p) => <Icon name="lock" {...p} />;
+    const UserIcon = (p) => <Icon name="user" {...p} />;
+    const Filter = (p) => <Icon name="filter" {...p} />;
+    const Download = (p) => <Icon name="download" {...p} />;
+    const MessageSquare = (p) => <Icon name="message-square" {...p} />;
+    const Eye = (p) => <Icon name="eye" {...p} />;
+    const EyeOff = (p) => <Icon name="eye-off" {...p} />;
+    const Menu = (p) => <Icon name="menu" {...p} />;
+    const TrendingUp = (p) => <Icon name="trending-up" {...p} />;
+    const Activity = (p) => <Icon name="activity" {...p} />;
+    const Zap = (p) => <Icon name="zap" {...p} />;
+
+    /* ======================================================================
+       DESIGN TOKENS
+       ====================================================================== */
+    const FONT_DISPLAY = "'Space Grotesk', sans-serif";
+    const FONT_BODY = "'Inter', sans-serif";
+    const FONT_MONO = "'IBM Plex Mono', monospace";
+
+    const COLORS = {
+      ink: "#151B24",
+      inkSoft: "#4B5768",
+      muted: "#8A93A3",
+      line: "#E4E8EE",
+      surface: "#FFFFFF",
+      bg: "#F5F7FA",
+      sidebar: "#111720",
+      sidebarSoft: "#8C97A8",
+      primary: "#0E6F64",
+      primarySoft: "#E4F2EF",
+      amber: "#C2760C",
+      amberSoft: "#FBF0DD",
+      red: "#C0362C",
+      redSoft: "#FBE7E4",
+      green: "#1E8E5A",
+      greenSoft: "#E5F4EB",
+      blue: "#2B5FA8",
+      blueSoft: "#E7EEF9",
+      violet: "#6A4C9C",
+      violetSoft: "#EFE9F7",
+    };
+
+    /* ======================================================================
+       SEED DATA
+       ====================================================================== */
+    const ROLES = ["Customer", "Agent", "Team Leader", "Administrator"];
+
+    const STATUSES = ["New", "Assigned", "In Progress", "Pending", "Resolved", "Closed", "Reopened"];
+    const STATUS_COLOR = {
+      New: COLORS.blue, Assigned: COLORS.violet, "In Progress": COLORS.amber,
+      Pending: COLORS.muted, Resolved: COLORS.green, Closed: COLORS.ink, Reopened: COLORS.red,
+    };
+    const STATUS_BG = {
+      New: COLORS.blueSoft, Assigned: COLORS.violetSoft, "In Progress": COLORS.amberSoft,
+      Pending: "#EEF0F3", Resolved: COLORS.greenSoft, Closed: "#E7E9EC", Reopened: COLORS.redSoft,
+    };
+
+    const PRIORITIES = [
+      { name: "Low", color: COLORS.muted, responseMins: 480, resolveMins: 4320 },
+      { name: "Medium", color: COLORS.blue, responseMins: 240, resolveMins: 1440 },
+      { name: "High", color: COLORS.amber, responseMins: 60, resolveMins: 480 },
+      { name: "Urgent", color: COLORS.red, responseMins: 30, resolveMins: 240 },
+      { name: "Critical", color: "#8B1E1E", responseMins: 15, resolveMins: 120 },
+    ];
+
+    const INITIAL_CATEGORIES = [
+      { id: "c1", name: "Hardware", desc: "Physical device issues", active: true },
+      { id: "c2", name: "Software", desc: "Application errors, installs", active: true },
+      { id: "c3", name: "Network", desc: "Connectivity & VPN", active: true },
+      { id: "c4", name: "Account", desc: "Access & credentials", active: true },
+      { id: "c5", name: "Email", desc: "Mailbox & delivery issues", active: true },
+      { id: "c6", name: "Application Support", desc: "Internal business apps", active: true },
+    ];
+
+    const INITIAL_USERS = [
+      { id: "u1", name: "Vathanakboth Ly", email: "vathanakboth.ly@camsolutions.com", role: "Customer", dept: "Finance", status: "Active", avatarColor: COLORS.blue },
+      { id: "u2", name: "Sokny San", email: "sokny.san@camsolutions.com", role: "Agent", dept: "IT Support", team: "Network Team", status: "Active", avatarColor: COLORS.primary },
+      { id: "u7", name: "Panha Noeun", email: "panha.noeun@camsolutions.com", role: "Customer", dept: "Marketing", status: "Active", avatarColor: COLORS.blue },
+      { id: "u3", name: "Nisa Na", email: "nisa.na@camsolutions.com", role: "Agent", dept: "IT Support", team: "Software Team", status: "Active", avatarColor: COLORS.violet },
+      { id: "u4", name: "Ravith Voeun", email: "ravith.voeun@camsolutions.com", role: "Team Leader", dept: "IT Support", team: "Software Team", status: "Active", avatarColor: COLORS.amber },
+      { id: "u5", name: "Sophanith Yorn", email: "sophanith.yorn@camsolutions.com", role: "Administrator", dept: "IT Support", status: "Active", avatarColor: COLORS.red },
+      { id: "u6", name: "Panha Chea", email: "panha.chea@camsolutions.com", role: "Customer", dept: "Marketing", status: "Active", avatarColor: COLORS.blue },
+    ];
+
+    const now = Date.now();
+    const mins = (m) => m * 60 * 1000;
+
+    function makeTicket(o) {
+      return {
+        id: o.id,
+        number: o.number,
+        subject: o.subject,
+        description: o.description,
+        category: o.category,
+        priority: o.priority,
+        status: o.status,
+        requester: o.requester,
+        assignee: o.assignee || null,
+        team: o.team || null,
+        createdAt: o.createdAt,
+        firstResponseAt: o.firstResponseAt || null,
+        resolvedAt: o.resolvedAt || null,
+        closedAt: o.closedAt || null,
+        slaResponseDeadline: o.createdAt + mins(PRIORITIES.find(p => p.name === o.priority).responseMins),
+        slaResolveDeadline: o.createdAt + mins(PRIORITIES.find(p => p.name === o.priority).resolveMins),
+        conversation: o.conversation || [],
+        attachments: o.attachments || [],
+        timeline: o.timeline || [{ ts: o.createdAt, label: "Ticket created", who: o.requester }],
+        escalations: o.escalations || [],
+        rating: o.rating || null,
+        feedback: o.feedback || null,
+        resolution: o.resolution || null,
+      };
+    }
+
+    const INITIAL_TICKETS = [
+      makeTicket({
+        id: "t1", number: "HD-2026-0001", subject: "Cannot connect to office VPN",
+        description: "VPN client fails with error 807 when connecting from home network.",
+        category: "Network", priority: "High", status: "In Progress",
+        requester: "u1", assignee: "u2", team: "Network Team",
+        createdAt: now - mins(180),
+        firstResponseAt: now - mins(150),
+        conversation: [
+          { id: "m1", from: "u1", type: "customer", text: "VPN keeps failing with error 807, tried restarting router already.", ts: now - mins(180) },
+          { id: "m2", from: "u2", type: "agent", text: "Thanks for the report — can you confirm which VPN client version you're using?", ts: now - mins(150) },
+        ],
+        timeline: [
+          { ts: now - mins(180), label: "Ticket created", who: "u1" },
+          { ts: now - mins(170), label: "Assigned to Sokny San", who: "u4" },
+          { ts: now - mins(150), label: "Agent responded", who: "u2" },
+          { ts: now - mins(140), label: "Status changed to In Progress", who: "u2" },
+        ],
+      }),
+      makeTicket({
+        id: "t2", number: "HD-2026-0002", subject: "Outlook not syncing new emails",
+        description: "New emails stopped appearing in inbox since this morning.",
+        category: "Email", priority: "Medium", status: "Assigned",
+        requester: "u6", assignee: "u3", team: "Software Team",
+        createdAt: now - mins(90),
+        timeline: [
+          { ts: now - mins(90), label: "Ticket created", who: "u6" },
+          { ts: now - mins(80), label: "Assigned to Nisa Na", who: "u4" },
+        ],
+      }),
+      makeTicket({
+        id: "t3", number: "HD-2026-0003", subject: "Laptop won't power on",
+        description: "Laptop screen stays black even after holding power button.",
+        category: "Hardware", priority: "Urgent", status: "New",
+        requester: "u1", createdAt: now - mins(20),
+      }),
+      makeTicket({
+        id: "t4", number: "HD-2025-0198", subject: "Password reset not receiving email",
+        description: "Requested password reset three times, no email received.",
+        category: "Account", priority: "Critical", status: "Resolved",
+        requester: "u6", assignee: "u2", team: "Network Team",
+        createdAt: now - mins(2600), firstResponseAt: now - mins(2580), resolvedAt: now - mins(2400),
+        resolution: { summary: "Reset email was landing in spam.", rootCause: "Spam filter misconfiguration", solution: "Whitelisted domain and re-sent reset link.", actionTaken: "Adjusted mail filter rule", resolutionCategory: "Configuration" },
+        conversation: [
+          { id: "m3", from: "u6", type: "customer", text: "Still no reset email after three tries.", ts: now - mins(2600) },
+          { id: "m4", from: "u2", type: "agent", text: "Found it — your domain was being filtered as spam. Fixed and resent.", ts: now - mins(2420) },
+        ],
+        timeline: [
+          { ts: now - mins(2600), label: "Ticket created", who: "u6" },
+          { ts: now - mins(2590), label: "Assigned to Sokny San", who: "u4" },
+          { ts: now - mins(2400), label: "Status changed to Resolved", who: "u2" },
+        ],
+      }),
+      makeTicket({
+        id: "t5", number: "HD-2025-0187", subject: "Shared drive access denied",
+        description: "Cannot access Marketing shared drive after department transfer.",
+        category: "Account", priority: "Low", status: "Closed",
+        requester: "u6", assignee: "u3", team: "Software Team",
+        createdAt: now - mins(8000), firstResponseAt: now - mins(7900), resolvedAt: now - mins(7200), closedAt: now - mins(7000),
+        resolution: { summary: "Access group updated.", rootCause: "Stale AD group membership", solution: "Added user to Marketing-Shared group", actionTaken: "Updated AD group", resolutionCategory: "Access Control" },
+        rating: 5, feedback: "Quick and clear resolution, thank you!",
+        timeline: [
+          { ts: now - mins(8000), label: "Ticket created", who: "u6" },
+          { ts: now - mins(7200), label: "Status changed to Resolved", who: "u3" },
+          { ts: now - mins(7000), label: "Status changed to Closed", who: "u6" },
+        ],
+      }),
+      makeTicket({
+        id: "t6", number: "HD-2026-0004", subject: "Internal app throwing 500 error on export",
+        description: "Exporting reports from the internal analytics app fails with server error.",
+        category: "Application Support", priority: "High", status: "Pending",
+        requester: "u1", assignee: "u3", team: "Software Team",
+        createdAt: now - mins(600), firstResponseAt: now - mins(560),
+        escalations: [{ ts: now - mins(300), level: "Team Leader", target: "u4", reason: "Requires backend access to investigate logs.", by: "u3" }],
+        timeline: [
+          { ts: now - mins(600), label: "Ticket created", who: "u1" },
+          { ts: now - mins(560), label: "Agent responded", who: "u3" },
+          { ts: now - mins(300), label: "Escalated to Team Leader", who: "u3" },
+          { ts: now - mins(290), label: "Status changed to Pending", who: "u3" },
+        ],
+      }),
+    ];
+
+    const INITIAL_SLA_RULES = [
+      { id: "s1", priority: "Low", firstResponse: "8h", resolution: "72h", active: true },
+      { id: "s2", priority: "Medium", firstResponse: "4h", resolution: "24h", active: true },
+      { id: "s3", priority: "High", firstResponse: "1h", resolution: "8h", active: true },
+      { id: "s4", priority: "Urgent", firstResponse: "30m", resolution: "4h", active: true },
+      { id: "s5", priority: "Critical", firstResponse: "15m", resolution: "2h", active: true },
+    ];
+
+    const INITIAL_KB = [
+      { id: "k1", title: "How to reset your VPN client", category: "Network", tags: ["vpn", "connectivity"], body: "Step-by-step guide to reinstall and reconfigure the VPN client after error 807.", published: true, views: 231 },
+      { id: "k2", title: "Fixing Outlook sync issues", category: "Email", tags: ["outlook", "sync"], body: "Common causes of Outlook sync failures and how to resolve them via account repair.", published: true, views: 154 },
+      { id: "k3", title: "Requesting shared drive access", category: "Account", tags: ["access", "drive"], body: "Process for requesting and approving access to departmental shared drives.", published: true, views: 98 },
+      { id: "k4", title: "Diagnosing laptop power issues", category: "Hardware", tags: ["laptop", "power"], body: "Checklist for troubleshooting a laptop that will not power on.", published: false, views: 12 },
+    ];
+
+    const INITIAL_NOTIFICATIONS = [
+      { id: "n1", to: "u2", text: "Ticket HD-2026-0001 assigned to you.", read: false, ts: now - mins(170) },
+      { id: "n2", to: "u3", text: "Ticket HD-2026-0002 assigned to you.", read: false, ts: now - mins(80) },
+      { id: "n3", to: "u4", text: "SLA warning: HD-2026-0003 nearing response deadline.", read: false, ts: now - mins(5) },
+      { id: "n4", to: "u4", text: "Ticket HD-2026-0004 escalated to you.", read: true, ts: now - mins(300) },
+    ];
+
+    /* ======================================================================
+       HELPERS
+       ====================================================================== */
+    function fmtDuration(msLeft) {
+      const neg = msLeft < 0;
+      const abs = Math.abs(msLeft);
+      const h = Math.floor(abs / mins(60));
+      const m = Math.floor((abs % mins(60)) / mins(1));
+      const txt = h > 0 ? `${h}h ${m}m` : `${m}m`;
+      return neg ? `overdue ${txt}` : `${txt} left`;
+    }
+
+    function slaState(deadline, resolvedOrRespondedAt) {
+      const ref = resolvedOrRespondedAt || now;
+      const diff = deadline - ref;
+      if (resolvedOrRespondedAt) return diff >= 0 ? "met" : "breached";
+      if (diff < 0) return "breached";
+      if (diff < mins(60)) return "warning";
+      return "ok";
+    }
+
+    function fmtDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    }
+
+    function priorityMeta(name) { return PRIORITIES.find((p) => p.name === name); }
+
+    /* ======================================================================
+       SMALL UI PRIMITIVES
+       ====================================================================== */
+    function Avatar({ user, size = 30 }) {
+      if (!user) return (
+        <div style={{ width: size, height: size, borderRadius: "50%", background: "#DDE2E8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <UserIcon size={size * 0.55} color="#9AA3B0" />
+        </div>
+      );
+      const initials = user.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
+      return (
+        <div style={{ width: size, height: size, borderRadius: "50%", background: user.avatarColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_DISPLAY, fontSize: size * 0.38, fontWeight: 600, flexShrink: 0 }}>
+          {initials}
+        </div>
+      );
+    }
+
+    function Badge({ children, color, bg }) {
+      return (
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 20,
+          fontSize: 11.5, fontWeight: 600, color, background: bg, whiteSpace: "nowrap",
+          fontFamily: FONT_BODY, letterSpacing: 0.1,
+        }}>
+          {children}
+        </span>
+      );
+    }
+
+    function PriorityBadge({ priority }) {
+      const p = priorityMeta(priority);
+      return (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: p.color, fontFamily: FONT_BODY }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: p.color, display: "inline-block" }} />
+          {priority}
+        </span>
+      );
+    }
+
+    function SLAIndicator({ ticket, compact }) {
+      if (["Resolved", "Closed"].includes(ticket.status)) {
+        const state = slaState(ticket.slaResolveDeadline, ticket.resolvedAt);
+        return <Badge color={state === "met" ? COLORS.green : COLORS.red} bg={state === "met" ? COLORS.greenSoft : COLORS.redSoft}>
+          {state === "met" ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />} {state === "met" ? "SLA met" : "SLA breached"}
+        </Badge>;
+      }
+      const respondPhase = !ticket.firstResponseAt;
+      const deadline = respondPhase ? ticket.slaResponseDeadline : ticket.slaResolveDeadline;
+      const state = slaState(deadline, null);
+      const diff = deadline - now;
+      const label = respondPhase ? "Response" : "Resolution";
+      const map = { ok: [COLORS.green, COLORS.greenSoft, CheckCircle2], warning: [COLORS.amber, COLORS.amberSoft, Clock], breached: [COLORS.red, COLORS.redSoft, AlertTriangle] };
+      const [c, bg, IconComponent] = map[state];
+      return (
+        <Badge color={c} bg={bg}>
+          <IconComponent size={12} /> {compact ? "" : `${label}: `}{fmtDuration(diff)}
+        </Badge>
+      );
+    }
+
+    function Button({ children, onClick, variant = "primary", size = "md", icon: IconComponent, style, type = "button", disabled }) {
+      const base = {
+        fontFamily: FONT_BODY, fontWeight: 600, borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer",
+        display: "inline-flex", alignItems: "center", gap: 7, border: "1px solid transparent",
+        transition: "all .12s ease", opacity: disabled ? 0.5 : 1,
+      };
+      const sizes = { sm: { padding: "6px 11px", fontSize: 12.5 }, md: { padding: "9px 15px", fontSize: 13.5 } };
+      const variants = {
+        primary: { background: COLORS.primary, color: "#fff" },
+        secondary: { background: "#fff", color: COLORS.ink, border: `1px solid ${COLORS.line}` },
+        ghost: { background: "transparent", color: COLORS.inkSoft },
+        danger: { background: COLORS.redSoft, color: COLORS.red },
+      };
+      return (
+        <button type={type} disabled={disabled} onClick={onClick} style={{ ...base, ...sizes[size], ...variants[variant], ...style }}>
+          {IconComponent && <IconComponent size={size === "sm" ? 14 : 16} />}
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ label, ...props }) {
+      return (
+        <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: FONT_BODY }}>
+          {label && <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.inkSoft }}>{label}</span>}
+          <input {...props} style={{
+            fontFamily: FONT_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 7,
+            border: `1px solid ${COLORS.line}`, outline: "none", color: COLORS.ink, background: "#fff", ...props.style,
+          }} />
+        </label>
+      );
+    }
+
+    function Select({ label, children, ...props }) {
+      return (
+        <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: FONT_BODY }}>
+          {label && <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.inkSoft }}>{label}</span>}
+          <select {...props} style={{
+            fontFamily: FONT_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 7,
+            border: `1px solid ${COLORS.line}`, outline: "none", color: COLORS.ink, background: "#fff", ...props.style,
+          }}>
+            {children}
+          </select>
+        </label>
+      );
+    }
+
+    function Textarea({ label, ...props }) {
+      return (
+        <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: FONT_BODY }}>
+          {label && <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.inkSoft }}>{label}</span>}
+          <textarea {...props} style={{
+            fontFamily: FONT_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 7,
+            border: `1px solid ${COLORS.line}`, outline: "none", color: COLORS.ink, resize: "vertical", background: "#fff", ...props.style,
+          }} />
+        </label>
+      );
+    }
+
+    function Card({ children, style, ...props }) {
+      return (
+        <div {...props} style={{ background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 12, ...style }}>
+          {children}
+        </div>
+      );
+    }
+
+    function Modal({ title, onClose, children, width = 560 }) {
+      return (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(17,23,32,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: width, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 60px rgba(17,23,32,0.25)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: `1px solid ${COLORS.line}`, position: "sticky", top: 0, background: "#fff", zIndex: 2 }}>
+              <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 600, margin: 0, color: COLORS.ink }}>{title}</h3>
+              <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: COLORS.muted, padding: 4 }}><X size={19} /></button>
+            </div>
+            <div style={{ padding: 22 }}>{children}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function EmptyState({ icon: IconComponent, title, sub }) {
+      return (
+        <div style={{ textAlign: "center", padding: "50px 20px", color: COLORS.muted }}>
+          <IconComponent size={30} style={{ marginBottom: 10, opacity: 0.5 }} />
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, color: COLORS.inkSoft, fontWeight: 600 }}>{title}</div>
+          {sub && <div style={{ fontSize: 13, marginTop: 4 }}>{sub}</div>}
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       LOGIN SCREEN
+       ====================================================================== */
+    function LoginScreen({ users, onLogin }) {
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [showPw, setShowPw] = useState(false);
+      const [error, setError] = useState("");
+      const [selectedRole, setSelectedRole] = useState("Customer");
+
+      const roleUser = useMemo(() => users.find((u) => u.role === selectedRole), [selectedRole, users]);
+
+      function submit(e) {
+        e.preventDefault();
+        if (!email || !password) { setError("Please enter both email and password."); return; }
+        const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || roleUser;
+        if (!user) { setError("No account found with that email."); return; }
+        if (user.status === "Blocked") { setError("This account has been blocked. Contact an administrator."); return; }
+        if (user.status === "Inactive") { setError("This account is inactive. Contact an administrator."); return; }
+        setError("");
+        onLogin(user);
+      }
+
+      function quickLogin(role) {
+        const u = users.find((x) => x.role === role);
+        onLogin(u);
+      }
+
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", background: COLORS.sidebar, fontFamily: FONT_BODY }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 64px", color: "#fff", maxWidth: 520 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 40 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: COLORS.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Zap size={18} color="#fff" />
+              </div>
+              <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 18, letterSpacing: 0.2 }}>HelpDesk<span style={{ color: "#5FBBAC" }}>OS</span></span>
+            </div>
+            <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 40, lineHeight: 1.15, fontWeight: 600, margin: "0 0 16px" }}>
+              Every ticket,<br />on the clock.
+            </h1>
+            <p style={{ color: COLORS.sidebarSoft, fontSize: 15, lineHeight: 1.6, maxWidth: 400 }}>
+              Track requests from first response to resolution, with SLA deadlines visible at every step — for customers, agents, team leaders, and administrators alike.
+            </p>
+            <div style={{ display: "flex", gap: 22, marginTop: 44 }}>
+              {[["4", "Roles"], ["7", "Ticket states"], ["24/7", "SLA tracking"]].map(([n, l]) => (
+                <div key={l}>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 22, fontWeight: 600, color: "#5FBBAC" }}>{n}</div>
+                  <div style={{ fontSize: 12, color: COLORS.sidebarSoft }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ flex: 1, background: COLORS.bg, display: "flex", alignItems: "center", justifyContent: "center", borderTopLeftRadius: 28, borderBottomLeftRadius: 28 }}>
+            <div style={{ width: "100%", maxWidth: 380 }}>
+              <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, color: COLORS.ink, margin: "0 0 4px" }}>Sign in</h2>
+              <p style={{ color: COLORS.muted, fontSize: 13, margin: "0 0 24px" }}>Use a demo account below or pick a role and continue.</p>
+
+              <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <Select label="Sign in as" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setEmail(""); }}>
+                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                </Select>
+                <Input label="Username / Email" placeholder={roleUser?.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+                <div style={{ position: "relative" }}>
+                  <Input label="Password" type={showPw ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <button type="button" onClick={() => setShowPw((s) => !s)} style={{ position: "absolute", right: 10, top: 30, background: "none", border: "none", cursor: "pointer", color: COLORS.muted }}>
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {error && (
+                  <div style={{ background: COLORS.redSoft, color: COLORS.red, fontSize: 12.5, padding: "9px 11px", borderRadius: 7, display: "flex", gap: 6, alignItems: "center" }}>
+                    <AlertTriangle size={14} /> {error}
+                  </div>
+                )}
+                <Button type="submit" style={{ justifyContent: "center", marginTop: 6 }}>Sign in <ChevronRight size={15} /></Button>
+              </form>
+
+              <div style={{ marginTop: 22, paddingTop: 18, borderTop: `1px solid ${COLORS.line}` }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Quick demo login</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {ROLES.map((r) => (
+                    <button key={r} onClick={() => quickLogin(r)} style={{
+                      fontFamily: FONT_BODY, fontSize: 12, fontWeight: 600, padding: "7px 12px", borderRadius: 7,
+                      border: `1px solid ${COLORS.line}`, background: "#fff", cursor: "pointer", color: COLORS.inkSoft,
+                    }}>{r}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       SIDEBAR / NAV
+       ====================================================================== */
+    const NAV_ITEMS = [
+      { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ROLES },
+      { key: "tickets", label: "Tickets", icon: TicketIcon, roles: ROLES },
+      { key: "kb", label: "Knowledge Base", icon: BookOpen, roles: ROLES },
+      { key: "notifications", label: "Notifications", icon: Bell, roles: ROLES },
+      { key: "reports", label: "Reports & KPI", icon: BarChart3, roles: ["Team Leader", "Administrator"] },
+      { key: "users", label: "User Management", icon: Users, roles: ["Administrator"] },
+      { key: "categories", label: "Categories", icon: Tag, roles: ["Administrator"] },
+      { key: "sla", label: "SLA Rules", icon: ShieldCheck, roles: ["Administrator"] },
+      { key: "profile", label: "My Profile", icon: Settings, roles: ROLES },
+    ];
+
+    function Sidebar({ view, setView, user, onLogout, unread, mobileOpen, setMobileOpen }) {
+      const items = NAV_ITEMS.filter((i) => i.roles.includes(user.role));
+      return (
+        <div style={{
+          width: 226, background: COLORS.sidebar, color: "#fff", display: "flex", flexDirection: "column",
+          flexShrink: 0, position: "fixed", top: 0, bottom: 0, left: mobileOpen ? 0 : undefined,
+          zIndex: 50, transition: "left .2s",
+        }} className="hd-sidebar">
+          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "22px 20px 18px" }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: COLORS.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Zap size={16} color="#fff" />
+            </div>
+            <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 15.5 }}>HelpDesk<span style={{ color: "#5FBBAC" }}>OS</span></span>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "6px 12px" }}>
+            {items.map((item) => {
+              const active = view === item.key;
+              const IconComponent = item.icon;
+              return (
+                <button key={item.key} onClick={() => { setView(item.key); setMobileOpen(false); }} style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", marginBottom: 2,
+                  borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left",
+                  background: active ? "rgba(94,187,172,0.14)" : "transparent",
+                  color: active ? "#5FBBAC" : "#B7C0CC", fontFamily: FONT_BODY, fontSize: 13.5, fontWeight: active ? 600 : 500,
+                  position: "relative",
+                }}>
+                  <IconComponent size={17} />
+                  {item.label}
+                  {item.key === "notifications" && unread > 0 && (
+                    <span style={{ marginLeft: "auto", background: COLORS.red, color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "1px 6px", borderRadius: 10 }}>{unread}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ padding: 14, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 8px", borderRadius: 8 }}>
+              <Avatar user={user} size={32} />
+              <div style={{ overflow: "hidden" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</div>
+                <div style={{ fontSize: 11, color: COLORS.sidebarSoft }}>{user.role}</div>
+              </div>
+            </div>
+            <button onClick={onLogout} style={{
+              width: "100%", marginTop: 6, display: "flex", alignItems: "center", gap: 9, padding: "9px 12px",
+              borderRadius: 8, border: "none", background: "transparent", color: "#B7C0CC", cursor: "pointer",
+              fontFamily: FONT_BODY, fontSize: 13, fontWeight: 500,
+            }}>
+              <LogOut size={16} /> Log out
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       DASHBOARD
+       ====================================================================== */
+    function KPICard({ label, value, sub, icon: IconComponent, color, bg }) {
+      return (
+        <Card style={{ padding: 16, flex: 1, minWidth: 150 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IconComponent size={16} color={color} />
+            </div>
+          </div>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 25, fontWeight: 600, color: COLORS.ink }}>{value}</div>
+          <div style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 2 }}>{label}</div>
+          {sub && <div style={{ fontSize: 11.5, color: color, marginTop: 4, fontWeight: 600 }}>{sub}</div>}
+        </Card>
+      );
+    }
+
+    function StatusBar({ counts, total }) {
+      return (
+        <Card style={{ padding: 18 }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 14.5, marginBottom: 14, color: COLORS.ink }}>Tickets by status</div>
+          <div style={{ display: "flex", height: 10, borderRadius: 6, overflow: "hidden", marginBottom: 14 }}>
+            {STATUSES.map((s) => (
+              <div key={s} title={s} style={{ width: `${total ? (counts[s] || 0) / total * 100 : 0}%`, background: STATUS_COLOR[s] }} />
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px,1fr))", gap: 10 }}>
+            {STATUSES.map((s) => (
+              <div key={s} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_COLOR[s], flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, color: COLORS.inkSoft }}>{s}</span>
+                <span style={{ marginLeft: "auto", fontFamily: FONT_MONO, fontSize: 12.5, fontWeight: 600, color: COLORS.ink }}>{counts[s] || 0}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      );
+    }
+
+    function Dashboard({ user, tickets, users, openTicket, setView }) {
+      const visible = user.role === "Customer" ? tickets.filter((t) => t.requester === user.id)
+        : user.role === "Agent" ? tickets.filter((t) => t.assignee === user.id)
+        : tickets;
+
+      const counts = {};
+      STATUSES.forEach((s) => (counts[s] = visible.filter((t) => t.status === s).length));
+      const openCount = visible.filter((t) => !["Closed", "Resolved"].includes(t.status)).length;
+      const breached = visible.filter((t) => {
+        if (["Closed", "Resolved"].includes(t.status)) return false;
+        const deadline = t.firstResponseAt ? t.slaResolveDeadline : t.slaResponseDeadline;
+        return deadline < now;
+      }).length;
+      const resolvedCount = visible.filter((t) => ["Resolved", "Closed"].includes(t.status)).length;
+      const resRate = visible.length ? Math.round((resolvedCount / visible.length) * 100) : 0;
+      const ratedTickets = visible.filter((t) => t.rating);
+      const avgRating = ratedTickets.length ? (ratedTickets.reduce((a, t) => a + t.rating, 0) / ratedTickets.length).toFixed(1) : "—";
+
+      const recent = [...visible].sort((a, b) => Math.max(...b.timeline.map(x => x.ts)) - Math.max(...a.timeline.map(x => x.ts))).slice(0, 6);
+
+      return (
+        <div>
+          <div style={{ marginBottom: 22 }}>
+            <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>Welcome back, {user.name.split(" ")[0]}</h1>
+            <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>Here's what's happening across your {user.role === "Customer" ? "tickets" : "queue"} today.</p>
+          </div>
+
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
+            <KPICard label="Open tickets" value={openCount} icon={TicketIcon} color={COLORS.blue} bg={COLORS.blueSoft} />
+            <KPICard label="SLA at risk / breached" value={breached} icon={AlertTriangle} color={COLORS.red} bg={COLORS.redSoft} sub={breached > 0 ? "Needs attention" : "All clear"} />
+            <KPICard label="Resolution rate" value={`${resRate}%`} icon={TrendingUp} color={COLORS.green} bg={COLORS.greenSoft} />
+            <KPICard label="Avg. satisfaction" value={avgRating === "—" ? avgRating : `${avgRating}★`} icon={Star} color={COLORS.amber} bg={COLORS.amberSoft} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16, alignItems: "start" }} className="hd-dash-grid">
+            <StatusBar counts={counts} total={visible.length} />
+            <Card style={{ padding: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>Recent activity</div>
+                <button onClick={() => setView("tickets")} style={{ background: "none", border: "none", color: COLORS.primary, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>View all <ChevronRight size={14} /></button>
+              </div>
+              {recent.length === 0 ? <EmptyState icon={Activity} title="No activity yet" /> : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {recent.map((t) => (
+                    <div key={t.id} onClick={() => openTicket(t.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 8px", borderRadius: 8, cursor: "pointer" }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = COLORS.bg} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.muted, width: 92, flexShrink: 0 }}>{t.number}</span>
+                      <span style={{ fontSize: 13, color: COLORS.ink, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.subject}</span>
+                      <Badge color={STATUS_COLOR[t.status]} bg={STATUS_BG[t.status]}>{t.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       TICKET LIST
+       ====================================================================== */
+    const selectSm = { padding: "8px 10px", borderRadius: 7, border: `1px solid ${COLORS.line}`, fontSize: 12.5, fontFamily: FONT_BODY, background: "#fff", color: COLORS.inkSoft, outline: "none" };
+
+    function TicketList({ user, tickets, categories, users, openTicket, onNewTicket }) {
+      const [q, setQ] = useState("");
+      const [statusFilter, setStatusFilter] = useState("All");
+      const [priorityFilter, setPriorityFilter] = useState("All");
+      const [categoryFilter, setCategoryFilter] = useState("All");
+      const [scope, setScope] = useState(user.role === "Customer" ? "mine" : user.role === "Agent" ? "assigned" : "all");
+
+      const scoped = tickets.filter((t) => {
+        if (user.role === "Customer") return t.requester === user.id;
+        if (scope === "assigned") return t.assignee === user.id;
+        if (scope === "unassigned") return !t.assignee;
+        return true;
+      });
+
+      const filtered = scoped.filter((t) => {
+        if (statusFilter !== "All" && t.status !== statusFilter) return false;
+        if (priorityFilter !== "All" && t.priority !== priorityFilter) return false;
+        if (categoryFilter !== "All" && t.category !== categoryFilter) return false;
+        if (q && !(t.subject.toLowerCase().includes(q.toLowerCase()) || t.number.toLowerCase().includes(q.toLowerCase()))) return false;
+        return true;
+      }).sort((a, b) => b.createdAt - a.createdAt);
+
+      const userById = (id) => users.find((u) => u.id === id);
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>Tickets</h1>
+              <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>{filtered.length} ticket{filtered.length !== 1 ? "s" : ""}</p>
+            </div>
+            <Button icon={Plus} onClick={onNewTicket}>New ticket</Button>
+          </div>
+
+          {user.role !== "Customer" && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {["all", "assigned", "unassigned"].map((s) => (
+                <button key={s} onClick={() => setScope(s)} style={{
+                  padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: FONT_BODY,
+                  border: `1px solid ${scope === s ? COLORS.primary : COLORS.line}`,
+                  background: scope === s ? COLORS.primarySoft : "#fff", color: scope === s ? COLORS.primary : COLORS.inkSoft,
+                }}>{s === "all" ? "All tickets" : s === "assigned" ? "Assigned to me" : "Unassigned"}</button>
+              ))}
+            </div>
+          )}
+
+          <Card style={{ padding: 14, marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ position: "relative", flex: "1 1 200px" }}>
+              <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: COLORS.muted }} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by subject or ticket number..." style={{
+                width: "100%", padding: "8px 10px 8px 32px", borderRadius: 7, border: `1px solid ${COLORS.line}`, fontSize: 13, fontFamily: FONT_BODY, outline: "none",
+              }} />
+            </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectSm}>
+              <option>All</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={selectSm}>
+              <option>All</option>{PRIORITIES.map((p) => <option key={p.name}>{p.name}</option>)}
+            </select>
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={selectSm}>
+              <option>All</option>{categories.map((c) => <option key={c.id}>{c.name}</option>)}
+            </select>
+          </Card>
+
+          <Card style={{ overflow: "hidden" }}>
+            {filtered.length === 0 ? <EmptyState icon={TicketIcon} title="No tickets found" sub="Try adjusting your filters." /> : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${COLORS.line}`, textAlign: "left" }}>
+                      {["Ticket", "Subject", "Requester", "Priority", "Status", "SLA", "Assignee"].map((h) => (
+                        <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((t) => (
+                      <tr key={t.id} onClick={() => openTicket(t.id)} style={{ borderBottom: `1px solid ${COLORS.line}`, cursor: "pointer" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = COLORS.bg} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                        <td style={{ padding: "11px 14px", fontFamily: FONT_MONO, fontSize: 12, color: COLORS.inkSoft }}>{t.number}</td>
+                        <td style={{ padding: "11px 14px", fontSize: 13, color: COLORS.ink, fontWeight: 500, maxWidth: 260 }}>
+                          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.subject}</div>
+                        </td>
+                        <td style={{ padding: "11px 14px" }}><div style={{ display: "flex", alignItems: "center", gap: 7 }}><Avatar user={userById(t.requester)} size={22} /><span style={{ fontSize: 12.5, color: COLORS.inkSoft }}>{userById(t.requester)?.name.split(" ")[0]}</span></div></td>
+                        <td style={{ padding: "11px 14px" }}><PriorityBadge priority={t.priority} /></td>
+                        <td style={{ padding: "11px 14px" }}><Badge color={STATUS_COLOR[t.status]} bg={STATUS_BG[t.status]}>{t.status}</Badge></td>
+                        <td style={{ padding: "11px 14px" }}><SLAIndicator ticket={t} compact /></td>
+                        <td style={{ padding: "11px 14px" }}>{t.assignee ? <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Avatar user={userById(t.assignee)} size={22} /><span style={{ fontSize: 12.5, color: COLORS.inkSoft }}>{userById(t.assignee)?.name.split(" ")[0]}</span></div> : <span style={{ fontSize: 12, color: COLORS.muted }}>Unassigned</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       CREATE TICKET MODAL
+       ====================================================================== */
+    function FieldError({ text }) {
+      return <div style={{ fontSize: 12, color: COLORS.red, marginTop: -8, display: "flex", alignItems: "center", gap: 4 }}><AlertTriangle size={12} /> {text}</div>;
+    }
+
+    function CreateTicketModal({ onClose, onCreate, categories, currentUser }) {
+      const [subject, setSubject] = useState("");
+      const [description, setDescription] = useState("");
+      const [category, setCategory] = useState(categories[0]?.name || "");
+      const [priority, setPriority] = useState("Medium");
+      const [file, setFile] = useState(null);
+      const [errors, setErrors] = useState({});
+
+      function submit() {
+        const errs = {};
+        if (!subject.trim()) errs.subject = "Subject is required.";
+        if (!description.trim()) errs.description = "Description is required.";
+        if (!category) errs.category = "Select a category.";
+        if (Object.keys(errs).length) { setErrors(errs); return; }
+        onCreate({ subject, description, category, priority, attachment: file });
+      }
+
+      return (
+        <Modal title="Create new ticket" onClose={onClose}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Input label="Subject" placeholder="Brief summary of the issue" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            {errors.subject && <FieldError text={errors.subject} />}
+            <Textarea label="Description" rows={4} placeholder="Describe the issue in detail..." value={description} onChange={(e) => setDescription(e.target.value)} />
+            {errors.description && <FieldError text={errors.description} />}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Select label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+                {categories.filter((c) => c.active).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </Select>
+              <Select label="Priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+                {PRIORITIES.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+              </Select>
+            </div>
+            <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.inkSoft }}>Attachment (optional)</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px dashed ${COLORS.line}`, borderRadius: 8, padding: "10px 12px" }}>
+                <Paperclip size={15} color={COLORS.muted} />
+                <input type="file" onChange={(e) => setFile(e.target.files[0]?.name || null)} style={{ fontSize: 12.5, fontFamily: FONT_BODY }} />
+              </div>
+            </label>
+            <div style={{ background: COLORS.primarySoft, borderRadius: 8, padding: "10px 12px", fontSize: 12, color: COLORS.primary }}>
+              A unique ticket number will be generated automatically on submission, and the SLA deadline will be set based on the selected priority.
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 6 }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button onClick={submit}>Submit ticket</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    /* ======================================================================
+       TICKET DETAIL
+       ====================================================================== */
+    function DetailRow({ label, value }) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${COLORS.line}`, fontSize: 12.5 }}>
+          <span style={{ color: COLORS.muted }}>{label}</span>
+          <span style={{ color: COLORS.ink, fontWeight: 500 }}>{value}</span>
+        </div>
+      );
+    }
+
+    function EscalateModal({ onClose, users, onConfirm }) {
+      const [level, setLevel] = useState("Team Leader");
+      const [target, setTarget] = useState(users.find((u) => u.role === "Team Leader")?.id || "");
+      const [reasonText, setReasonText] = useState("");
+      const targets = users.filter((u) => level === "Team Leader" ? u.role === "Team Leader" : u.role === "Administrator");
+      return (
+        <Modal title="Escalate ticket" onClose={onClose} width={440}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Select label="Escalation level" value={level} onChange={(e) => { setLevel(e.target.value); setTarget(""); }}>
+              <option>Team Leader</option><option>Manager</option>
+            </Select>
+            <Select label="Target" value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">Select...</option>
+              {targets.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </Select>
+            <Textarea label="Reason" rows={3} value={reasonText} onChange={(e) => setReasonText(e.target.value)} placeholder="Why does this need to be escalated?" />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button disabled={!target || !reasonText.trim()} onClick={() => onConfirm(level, target, reasonText)}>Escalate</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function ResolveModal({ onClose, onConfirm }) {
+      const [f, setF] = useState({ summary: "", rootCause: "", solution: "", actionTaken: "", resolutionCategory: "Configuration" });
+      const valid = f.summary.trim() && f.rootCause.trim() && f.solution.trim();
+      return (
+        <Modal title="Resolve ticket" onClose={onClose} width={520}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Textarea label="Problem summary" rows={2} value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} />
+            <Textarea label="Root cause" rows={2} value={f.rootCause} onChange={(e) => setF({ ...f, rootCause: e.target.value })} />
+            <Textarea label="Solution" rows={2} value={f.solution} onChange={(e) => setF({ ...f, solution: e.target.value })} />
+            <Input label="Action taken" value={f.actionTaken} onChange={(e) => setF({ ...f, actionTaken: e.target.value })} />
+            <Select label="Resolution category" value={f.resolutionCategory} onChange={(e) => setF({ ...f, resolutionCategory: e.target.value })}>
+              <option>Configuration</option><option>Access Control</option><option>Hardware Replacement</option><option>User Education</option><option>Software Fix</option>
+            </Select>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button disabled={!valid} onClick={() => onConfirm(f)}>Mark as resolved</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function ReopenModal({ onClose, onConfirm }) {
+      const [reasonText, setReasonText] = useState("");
+      return (
+        <Modal title="Reopen ticket" onClose={onClose} width={420}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Textarea label="Why are you reopening this ticket?" rows={3} value={reasonText} onChange={(e) => setReasonText(e.target.value)} />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button disabled={!reasonText.trim()} onClick={() => onConfirm(reasonText)}>Reopen ticket</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function RateModal({ onClose, onConfirm }) {
+      const [rating, setRating] = useState(0);
+      const [feedback, setFeedback] = useState("");
+      return (
+        <Modal title="Rate your support experience" onClose={onClose} width={420}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n} onClick={() => setRating(n)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
+                  <Star size={30} fill={n <= rating ? COLORS.amber : "none"} color={COLORS.amber} />
+                </button>
+              ))}
+            </div>
+            <Textarea label="Comments (optional)" rows={3} value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Tell us about your experience..." />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="secondary" onClick={onClose}>Skip</Button>
+              <Button disabled={!rating} onClick={() => onConfirm(rating, feedback)}>Submit feedback</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function TicketDetail({ ticket, users, categories, currentUser, onBack, onUpdate }) {
+      const [reply, setReply] = useState("");
+      const [replyType, setReplyType] = useState("customer"); // customer-visible reply vs internal note
+      const [showAssign, setShowAssign] = useState(false);
+      const [showEscalate, setShowEscalate] = useState(false);
+      const [showResolve, setShowResolve] = useState(false);
+      const [showReopen, setShowReopen] = useState(false);
+      const [showRate, setShowRate] = useState(false);
+
+      const userById = (id) => users.find((u) => u.id === id);
+      const requester = userById(ticket.requester);
+      const assignee = ticket.assignee ? userById(ticket.assignee) : null;
+      const canAgentAct = ["Agent", "Team Leader", "Administrator"].includes(currentUser.role);
+      const isOwner = currentUser.id === ticket.requester;
+
+      function pushTimeline(label) {
+        return { ts: Date.now(), label, who: currentUser.id };
+      }
+
+      function sendReply() {
+        if (!reply.trim()) return;
+        const isInternal = replyType === "internal";
+        const msg = { id: "m" + Date.now(), from: currentUser.id, type: isInternal ? "internal" : (isOwner ? "customer" : "agent"), text: reply, ts: Date.now() };
+        const patch = {
+          conversation: [...ticket.conversation, msg],
+          timeline: [...ticket.timeline, pushTimeline(isInternal ? "Internal note added" : "Reply sent")],
+        };
+        if (!ticket.firstResponseAt && !isInternal && !isOwner) patch.firstResponseAt = Date.now();
+        if (ticket.status === "New" && !isOwner) patch.status = "Assigned";
+        onUpdate(ticket.id, patch);
+        setReply("");
+      }
+
+      function setStatus(newStatus) {
+        onUpdate(ticket.id, { status: newStatus, timeline: [...ticket.timeline, pushTimeline(`Status changed to ${newStatus}`)] });
+      }
+
+      function assignTo(userId) {
+        const u = userById(userId);
+        onUpdate(ticket.id, {
+          assignee: userId, team: u.team || null, status: ticket.status === "New" ? "Assigned" : ticket.status,
+          timeline: [...ticket.timeline, pushTimeline(`Assigned to ${u.name}`)],
+        });
+        setShowAssign(false);
+      }
+
+      const respondPhase = !ticket.firstResponseAt;
+      const deadline = respondPhase ? ticket.slaResponseDeadline : ticket.slaResolveDeadline;
+
+      return (
+        <div>
+          <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: COLORS.muted, fontSize: 13, fontFamily: FONT_BODY, marginBottom: 14, padding: 0 }}>
+            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> Back to tickets
+          </button>
+
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
+            <div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLORS.muted, marginBottom: 4 }}>{ticket.number}</div>
+              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 600, margin: 0, color: COLORS.ink }}>{ticket.subject}</h1>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <Badge color={STATUS_COLOR[ticket.status]} bg={STATUS_BG[ticket.status]}>{ticket.status}</Badge>
+                <PriorityBadge priority={ticket.priority} />
+                <Badge color={COLORS.inkSoft} bg={COLORS.bg}>{ticket.category}</Badge>
+                <SLAIndicator ticket={ticket} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {canAgentAct && !["Closed"].includes(ticket.status) && <Button size="sm" variant="secondary" icon={UserIcon} onClick={() => setShowAssign(true)}>{ticket.assignee ? "Reassign" : "Assign"}</Button>}
+              {canAgentAct && !["Resolved", "Closed"].includes(ticket.status) && <Button size="sm" variant="secondary" icon={ArrowUpCircle} onClick={() => setShowEscalate(true)}>Escalate</Button>}
+              {canAgentAct && ["In Progress", "Pending", "Assigned", "Reopened"].includes(ticket.status) && <Button size="sm" icon={CheckCircle2} onClick={() => setShowResolve(true)}>Resolve</Button>}
+              {isOwner && ticket.status === "Resolved" && <Button size="sm" icon={CheckCircle2} onClick={() => setStatus("Closed")}>Confirm & close</Button>}
+              {isOwner && ticket.status === "Resolved" && <Button size="sm" variant="secondary" icon={RotateCcw} onClick={() => setShowReopen(true)}>Reopen</Button>}
+              {isOwner && ticket.status === "Closed" && !ticket.rating && <Button size="sm" variant="secondary" icon={Star} onClick={() => setShowRate(true)}>Rate support</Button>}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, alignItems: "start" }} className="hd-ticket-grid">
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Card style={{ padding: 18 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: COLORS.ink }}>Description</div>
+                <p style={{ fontSize: 13.5, color: COLORS.inkSoft, lineHeight: 1.6, margin: 0 }}>{ticket.description}</p>
+                {ticket.attachments?.length > 0 && (
+                  <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {ticket.attachments.map((a, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${COLORS.line}`, borderRadius: 7, padding: "6px 10px", fontSize: 12 }}>
+                        <Paperclip size={13} color={COLORS.muted} /> {a}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {ticket.resolution && (
+                <Card style={{ padding: 18, borderColor: COLORS.greenSoft, background: "#FBFEFC" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                    <CheckCircle2 size={16} color={COLORS.green} />
+                    <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 13.5, color: COLORS.ink }}>Resolution</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 12.5 }}>
+                    <div><span style={{ color: COLORS.muted }}>Root cause: </span><span style={{ color: COLORS.inkSoft }}>{ticket.resolution.rootCause}</span></div>
+                    <div><span style={{ color: COLORS.muted }}>Category: </span><span style={{ color: COLORS.inkSoft }}>{ticket.resolution.resolutionCategory}</span></div>
+                    <div style={{ gridColumn: "1/-1" }}><span style={{ color: COLORS.muted }}>Solution: </span><span style={{ color: COLORS.inkSoft }}>{ticket.resolution.solution}</span></div>
+                    <div style={{ gridColumn: "1/-1" }}><span style={{ color: COLORS.muted }}>Action taken: </span><span style={{ color: COLORS.inkSoft }}>{ticket.resolution.actionTaken}</span></div>
+                  </div>
+                </Card>
+              )}
+
+              {ticket.rating && (
+                <Card style={{ padding: 18 }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: COLORS.ink }}>Customer feedback</div>
+                  <div style={{ display: "flex", gap: 3, marginBottom: 6 }}>
+                    {[1, 2, 3, 4, 5].map((n) => <Star key={n} size={16} fill={n <= ticket.rating ? COLORS.amber : "none"} color={COLORS.amber} />)}
+                  </div>
+                  {ticket.feedback && <p style={{ fontSize: 13, color: COLORS.inkSoft, margin: 0 }}>"{ticket.feedback}"</p>}
+                </Card>
+              )}
+
+              <Card style={{ padding: 18 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 13.5, marginBottom: 12, color: COLORS.ink }}>Conversation</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
+                  {ticket.conversation.length === 0 && <div style={{ fontSize: 12.5, color: COLORS.muted }}>No replies yet.</div>}
+                  {ticket.conversation.map((m) => {
+                    const from = userById(m.from);
+                    const internal = m.type === "internal";
+                    return (
+                      <div key={m.id} style={{ display: "flex", gap: 10, background: internal ? COLORS.amberSoft : COLORS.bg, borderRadius: 10, padding: 11, border: internal ? `1px dashed ${COLORS.amber}` : "none" }}>
+                        <Avatar user={from} size={26} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink }}>{from?.name}</span>
+                            {internal && <Badge color={COLORS.amber} bg="#fff">Internal note</Badge>}
+                            <span style={{ fontSize: 11, color: COLORS.muted, marginLeft: "auto" }}>{fmtDate(m.ts)}</span>
+                          </div>
+                          <div style={{ fontSize: 13, color: COLORS.inkSoft, lineHeight: 1.5 }}>{m.text}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {ticket.status !== "Closed" && (
+                  <div>
+                    {canAgentAct && (
+                      <div style={{ display: "flex", gap: 14, marginBottom: 8 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: COLORS.inkSoft, cursor: "pointer" }}>
+                          <input type="radio" name="replyType" checked={replyType === "customer"} onChange={() => setReplyType("customer")} /> Reply to customer
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: COLORS.inkSoft, cursor: "pointer" }}>
+                          <input type="radio" name="replyType" checked={replyType === "internal"} onChange={() => setReplyType("internal")} /> Internal note
+                        </label>
+                      </div>
+                    )}
+                    <Textarea rows={2} placeholder={replyType === "internal" ? "Add a note visible only to the support team..." : "Write a reply..."} value={reply} onChange={(e) => setReply(e.target.value)} />
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                      <Button size="sm" icon={Send} onClick={sendReply}>Send</Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Card style={{ padding: 16 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 12.5, marginBottom: 12, color: COLORS.ink, textTransform: "uppercase", letterSpacing: 0.4 }}>Details</div>
+                <DetailRow label="Requester" value={<div style={{ display: "flex", alignItems: "center", gap: 6 }}><Avatar user={requester} size={20} />{requester?.name}</div>} />
+                <DetailRow label="Assignee" value={assignee ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Avatar user={assignee} size={20} />{assignee.name}</div> : "Unassigned"} />
+                <DetailRow label="Team" value={ticket.team || "—"} />
+                <DetailRow label="Category" value={ticket.category} />
+                <DetailRow label="Created" value={fmtDate(ticket.createdAt)} />
+                <DetailRow label={respondPhase ? "Response due" : "Resolve due"} value={fmtDate(deadline)} />
+              </Card>
+
+              {ticket.escalations.length > 0 && (
+                <Card style={{ padding: 16 }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 12.5, marginBottom: 10, color: COLORS.ink, textTransform: "uppercase", letterSpacing: 0.4 }}>Escalations</div>
+                  {ticket.escalations.map((e, i) => (
+                    <div key={i} style={{ fontSize: 12, color: COLORS.inkSoft, marginBottom: 8, paddingBottom: 8, borderBottom: i < ticket.escalations.length - 1 ? `1px solid ${COLORS.line}` : "none" }}>
+                      <div style={{ fontWeight: 600, color: COLORS.red, display: "flex", alignItems: "center", gap: 5 }}><ArrowUpCircle size={13} /> To {e.level}: {userById(e.target)?.name}</div>
+                      <div style={{ marginTop: 3 }}>{e.reason}</div>
+                      <div style={{ color: COLORS.muted, marginTop: 2 }}>{fmtDate(e.ts)}</div>
+                    </div>
+                  ))}
+                </Card>
+              )}
+
+              <Card style={{ padding: 16 }}>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 12.5, marginBottom: 12, color: COLORS.ink, textTransform: "uppercase", letterSpacing: 0.4 }}>Timeline</div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {ticket.timeline.slice().reverse().map((e, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, paddingBottom: 14, position: "relative" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.primary, flexShrink: 0, marginTop: 3 }} />
+                        {i < ticket.timeline.length - 1 && <div style={{ width: 1, flex: 1, background: COLORS.line, marginTop: 3 }} />}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12.5, color: COLORS.ink, fontWeight: 500 }}>{e.label}</div>
+                        <div style={{ fontSize: 11, color: COLORS.muted }}>{fmtDate(e.ts)} · {userById(e.who)?.name || "System"}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          {showAssign && (
+            <Modal title="Assign ticket" onClose={() => setShowAssign(false)} width={420}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {users.filter((u) => u.role === "Agent").map((u) => (
+                  <button key={u.id} onClick={() => assignTo(u.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, border: `1px solid ${COLORS.line}`, borderRadius: 8, background: "#fff", cursor: "pointer", textAlign: "left" }}>
+                    <Avatar user={u} size={30} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{u.name}</div>
+                      <div style={{ fontSize: 11.5, color: COLORS.muted }}>{u.team}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Modal>
+          )}
+
+          {showEscalate && (
+            <EscalateModal onClose={() => setShowEscalate(false)} users={users} onConfirm={(level, target, reasonText) => {
+              onUpdate(ticket.id, {
+                escalations: [...ticket.escalations, { ts: Date.now(), level, target, reason: reasonText, by: currentUser.id }],
+                timeline: [...ticket.timeline, pushTimeline(`Escalated to ${level}`)],
+              });
+              setShowEscalate(false);
+            }} />
+          )}
+
+          {showResolve && (
+            <ResolveModal onClose={() => setShowResolve(false)} onConfirm={(resolution) => {
+              onUpdate(ticket.id, {
+                status: "Resolved", resolvedAt: Date.now(), resolution,
+                timeline: [...ticket.timeline, pushTimeline("Status changed to Resolved")],
+              });
+              setShowResolve(false);
+            }} />
+          )}
+
+          {showReopen && (
+            <ReopenModal onClose={() => setShowReopen(false)} onConfirm={(reasonText) => {
+              onUpdate(ticket.id, {
+                status: "Reopened",
+                conversation: [...ticket.conversation, { id: "m" + Date.now(), from: currentUser.id, type: "customer", text: `Reopened: ${reasonText}`, ts: Date.now() }],
+                timeline: [...ticket.timeline, pushTimeline("Ticket reopened")],
+              });
+              setShowReopen(false);
+            }} />
+          )}
+
+          {showRate && (
+            <RateModal onClose={() => setShowRate(false)} onConfirm={(rating, feedback) => {
+              onUpdate(ticket.id, { rating, feedback });
+              setShowRate(false);
+            }} />
+          )}
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       USER MANAGEMENT (Admin)
+       ====================================================================== */
+    function UserFormModal({ user, onClose, onSave }) {
+      const [f, setF] = useState(user || { name: "", email: "", role: "Customer", dept: "", team: "", status: "Active" });
+      const [errors, setErrors] = useState({});
+      function submit() {
+        const errs = {};
+        if (!f.name.trim()) errs.name = "Full name is required.";
+        if (!f.email.trim() || !f.email.includes("@")) errs.email = "A valid email is required.";
+        if (Object.keys(errs).length) { setErrors(errs); return; }
+        onSave(f);
+      }
+      return (
+        <Modal title={user ? "Edit user" : "Add user"} onClose={onClose} width={460}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Input label="Full name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+            {errors.name && <FieldError text={errors.name} />}
+            <Input label="Email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+            {errors.email && <FieldError text={errors.email} />}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Select label="Role" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
+                {ROLES.map((r) => <option key={r}>{r}</option>)}
+              </Select>
+              <Select label="Account status" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
+                <option>Active</option><option>Inactive</option><option>Blocked</option>
+              </Select>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Input label="Department" value={f.dept} onChange={(e) => setF({ ...f, dept: e.target.value })} />
+              <Input label="Support team (agents)" value={f.team || ""} onChange={(e) => setF({ ...f, team: e.target.value })} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button onClick={submit}>Save user</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function UserManagement({ users, setUsers }) {
+      const [showForm, setShowForm] = useState(false);
+      const [editing, setEditing] = useState(null);
+
+      function saveUser(data) {
+        if (editing) {
+          setUsers(users.map((u) => (u.id === editing.id ? { ...u, ...data } : u)));
+        } else {
+          setUsers([...users, { id: "u" + Date.now(), avatarColor: [COLORS.blue, COLORS.primary, COLORS.violet, COLORS.amber][users.length % 4], ...data }]);
+        }
+        setShowForm(false); setEditing(null);
+      }
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div>
+              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>User Management</h1>
+              <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>{users.length} accounts</p>
+            </div>
+            <Button icon={Plus} onClick={() => { setEditing(null); setShowForm(true); }}>Add user</Button>
+          </div>
+          <Card style={{ overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${COLORS.line}`, textAlign: "left" }}>
+                  {["User", "Role", "Department / Team", "Status", ""].map((h) => (
+                    <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id} style={{ borderBottom: `1px solid ${COLORS.line}` }}>
+                    <td style={{ padding: "10px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <Avatar user={u} size={28} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{u.name}</div>
+                          <div style={{ fontSize: 11.5, color: COLORS.muted }}>{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: COLORS.inkSoft }}>{u.role}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 12.5, color: COLORS.inkSoft }}>{u.dept}{u.team ? ` · ${u.team}` : ""}</td>
+                    <td style={{ padding: "10px 14px" }}>
+                      <Badge color={u.status === "Active" ? COLORS.green : u.status === "Inactive" ? COLORS.muted : COLORS.red} bg={u.status === "Active" ? COLORS.greenSoft : u.status === "Inactive" ? COLORS.bg : COLORS.redSoft}>{u.status}</Badge>
+                    </td>
+                    <td style={{ padding: "10px 14px", textAlign: "right" }}>
+                      <button onClick={() => { setEditing(u); setShowForm(true); }} style={{ background: "none", border: "none", color: COLORS.primary, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: FONT_BODY }}>Edit</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+
+          {showForm && (
+            <UserFormModal user={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSave={saveUser} />
+          )}
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       CATEGORY MANAGEMENT
+       ====================================================================== */
+    function CategoryForm({ initial, onSave, onCancel }) {
+      const [f, setF] = useState(initial || { name: "", desc: "", active: true });
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Input label="Category name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <Textarea label="Description" rows={2} value={f.desc} onChange={(e) => setF({ ...f, desc: e.target.value })} />
+          <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: COLORS.inkSoft }}>
+            <input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active — selectable during ticket creation
+          </label>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+            <Button disabled={!f.name.trim()} onClick={() => onSave(f)}>Save</Button>
+          </div>
+        </div>
+      );
+    }
+
+    function CategoryManagement({ categories, setCategories }) {
+      const [showForm, setShowForm] = useState(false);
+      const [editing, setEditing] = useState(null);
+
+      function save(data) {
+        if (editing) setCategories(categories.map((c) => (c.id === editing.id ? { ...c, ...data } : c)));
+        else setCategories([...categories, { id: "c" + Date.now(), ...data }]);
+        setShowForm(false); setEditing(null);
+      }
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div>
+              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>Ticket Categories</h1>
+              <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>Manage the categories customers select when creating a ticket.</p>
+            </div>
+            <Button icon={Plus} onClick={() => { setEditing(null); setShowForm(true); }}>Add category</Button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+            {categories.map((c) => (
+              <Card key={c.id} style={{ padding: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 14.5, color: COLORS.ink }}>{c.name}</div>
+                  <Badge color={c.active ? COLORS.green : COLORS.muted} bg={c.active ? COLORS.greenSoft : COLORS.bg}>{c.active ? "Active" : "Inactive"}</Badge>
+                </div>
+                <p style={{ fontSize: 12.5, color: COLORS.muted, margin: "0 0 12px" }}>{c.desc}</p>
+                <button onClick={() => { setEditing(c); setShowForm(true); }} style={{ background: "none", border: "none", color: COLORS.primary, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: FONT_BODY, padding: 0 }}>Edit</button>
+              </Card>
+            ))}
+          </div>
+          {showForm && (
+            <Modal title={editing ? "Edit category" : "Add category"} onClose={() => setShowForm(false)} width={420}>
+              <CategoryForm initial={editing} onSave={save} onCancel={() => setShowForm(false)} />
+            </Modal>
+          )}
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       SLA RULES
+       ====================================================================== */
+    function SLAManagement({ rules, setRules }) {
+      function toggle(id) {
+        setRules(rules.map((r) => (r.id === id ? { ...r, active: !r.active } : r)));
+      }
+      return (
+        <div>
+          <div style={{ marginBottom: 18 }}>
+            <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>SLA Rules</h1>
+            <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>First-response and resolution targets by priority level.</p>
+          </div>
+          <Card style={{ overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${COLORS.line}`, textAlign: "left" }}>
+                  {["Priority", "First response target", "Resolution target", "Status"].map((h) => (
+                    <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map((r) => (
+                  <tr key={r.id} style={{ borderBottom: `1px solid ${COLORS.line}` }}>
+                    <td style={{ padding: "12px 14px" }}><PriorityBadge priority={r.priority} /></td>
+                    <td style={{ padding: "12px 14px", fontFamily: FONT_MONO, fontSize: 12.5, color: COLORS.inkSoft }}>{r.firstResponse}</td>
+                    <td style={{ padding: "12px 14px", fontFamily: FONT_MONO, fontSize: 12.5, color: COLORS.inkSoft }}>{r.resolution}</td>
+                    <td style={{ padding: "12px 14px" }}>
+                      <button onClick={() => toggle(r.id)} style={{ border: "none", cursor: "pointer", background: "none", padding: 0 }}>
+                        <Badge color={r.active ? COLORS.green : COLORS.muted} bg={r.active ? COLORS.greenSoft : COLORS.bg}>{r.active ? "Active" : "Inactive"}</Badge>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+          <div style={{ marginTop: 14, fontSize: 12, color: COLORS.muted, display: "flex", gap: 6, alignItems: "center" }}>
+            <ShieldCheck size={14} /> New tickets automatically inherit the response/resolution deadline that matches their priority at creation time.
+          </div>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       KNOWLEDGE BASE
+       ====================================================================== */
+    function KBFormModal({ categories, onClose, onSave }) {
+      const [f, setF] = useState({ title: "", body: "", category: categories[0]?.name || "", tags: "", published: true });
+      return (
+        <Modal title="Add knowledge base article" onClose={onClose} width={520}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Input label="Title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+            <Textarea label="Solution / content" rows={4} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Select label="Category" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+                {categories.map((c) => <option key={c.id}>{c.name}</option>)}
+              </Select>
+              <Input label="Tags (comma separated)" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} />
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: COLORS.inkSoft }}>
+              <input type="checkbox" checked={f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Publish immediately
+            </label>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button disabled={!f.title.trim() || !f.body.trim()} onClick={() => onSave({ ...f, tags: f.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean) })}>Save article</Button>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    function KnowledgeBase({ kb, setKb, categories, canManage }) {
+      const [q, setQ] = useState("");
+      const [showForm, setShowForm] = useState(false);
+      const filtered = kb.filter((a) => a.published || canManage).filter((a) => a.title.toLowerCase().includes(q.toLowerCase()) || a.tags.some((t) => t.includes(q.toLowerCase())));
+
+      function addArticle(data) {
+        setKb([{ id: "k" + Date.now(), views: 0, ...data }, ...kb]);
+        setShowForm(false);
+      }
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>Knowledge Base</h1>
+              <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>Solutions, FAQs, and troubleshooting guides.</p>
+            </div>
+            {canManage && <Button icon={Plus} onClick={() => setShowForm(true)}>Add article</Button>}
+          </div>
+          <div style={{ position: "relative", marginBottom: 16, maxWidth: 420 }}>
+            <Search size={15} style={{ position: "absolute", left: 10, top: 11, color: COLORS.muted }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search articles or tags..." style={{ width: "100%", padding: "9px 10px 9px 32px", borderRadius: 8, border: `1px solid ${COLORS.line}`, fontSize: 13, fontFamily: FONT_BODY, outline: "none" }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+            {filtered.map((a) => (
+              <Card key={a.id} style={{ padding: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <Badge color={COLORS.violet} bg={COLORS.violetSoft}>{a.category}</Badge>
+                  {!a.published && <Badge color={COLORS.muted} bg={COLORS.bg}>Draft</Badge>}
+                </div>
+                <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 14.5, color: COLORS.ink, marginBottom: 6 }}>{a.title}</div>
+                <p style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.5, margin: "0 0 10px" }}>{a.body}</p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 5 }}>{a.tags.map((t) => <span key={t} style={{ fontSize: 10.5, color: COLORS.muted, background: COLORS.bg, padding: "2px 7px", borderRadius: 10 }}>#{t}</span>)}</div>
+                  <span style={{ fontSize: 11, color: COLORS.muted, display: "flex", alignItems: "center", gap: 3 }}><Eye size={12} /> {a.views}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+          {filtered.length === 0 && <EmptyState icon={BookOpen} title="No articles found" />}
+          {showForm && <KBFormModal categories={categories} onClose={() => setShowForm(false)} onSave={addArticle} />}
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       NOTIFICATIONS
+       ====================================================================== */
+    function Notifications({ notifications, setNotifications, currentUser }) {
+      const mine = notifications.filter((n) => n.to === currentUser.id).sort((a, b) => b.ts - a.ts);
+      function markRead(id) { setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n))); }
+      function markAllRead() { setNotifications(notifications.map((n) => (n.to === currentUser.id ? { ...n, read: true } : n))); }
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>Notifications</h1>
+            {mine.some((n) => !n.read) && <Button size="sm" variant="secondary" onClick={markAllRead}>Mark all as read</Button>}
+          </div>
+          <Card style={{ overflow: "hidden" }}>
+            {mine.length === 0 ? <EmptyState icon={Bell} title="You're all caught up" /> : mine.map((n, i) => (
+              <div key={n.id} onClick={() => markRead(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < mine.length - 1 ? `1px solid ${COLORS.line}` : "none", cursor: "pointer", background: n.read ? "#fff" : COLORS.primarySoft }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: n.read ? "transparent" : COLORS.primary, flexShrink: 0 }} />
+                <Bell size={16} color={COLORS.muted} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: COLORS.ink, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
+                  <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>{fmtDate(n.ts)}</div>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       REPORTS & KPI
+       ====================================================================== */
+    function Reports({ tickets, users }) {
+      const [type, setType] = useState("Ticket Summary");
+      const total = tickets.length;
+      const resolved = tickets.filter((t) => ["Resolved", "Closed"].includes(t.status)).length;
+      const reopened = tickets.filter((t) => t.status === "Reopened").length;
+      const resRate = total ? Math.round((resolved / total) * 100) : 0;
+      const withResolveSla = tickets.filter((t) => t.resolvedAt);
+      const withinSla = withResolveSla.filter((t) => t.resolvedAt <= t.slaResolveDeadline).length;
+      const slaCompliance = withResolveSla.length ? Math.round((withinSla / withResolveSla.length) * 100) : 0;
+      const reopenRate = resolved ? Math.round((reopened / resolved) * 100) : 0;
+      const rated = tickets.filter((t) => t.rating);
+      const avgRating = rated.length ? (rated.reduce((a, t) => a + t.rating, 0) / rated.length).toFixed(1) : "—";
+
+      const byCategory = INITIAL_CATEGORIES.map((c) => ({ name: c.name, count: tickets.filter((t) => t.category === c.name).length }));
+      const agentStats = users.filter((u) => u.role === "Agent").map((a) => {
+        const assigned = tickets.filter((t) => t.assignee === a.id);
+        const res = assigned.filter((t) => ["Resolved", "Closed"].includes(t.status));
+        const responded = assigned.filter((t) => t.firstResponseAt);
+        const avgResp = responded.length ? Math.round(responded.reduce((sum, t) => sum + (t.firstResponseAt - t.createdAt), 0) / responded.length / mins(1)) : null;
+        return { ...a, assigned: assigned.length, resolved: res.length, avgResp };
+      });
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: 0, color: COLORS.ink }}>Reports &amp; KPI Dashboard</h1>
+              <p style={{ color: COLORS.muted, fontSize: 13.5, margin: "4px 0 0" }}>Overall Help Desk performance summary.</p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <select value={type} onChange={(e) => setType(e.target.value)} style={selectSm}>
+                {["Ticket Summary", "SLA Report", "Agent Performance", "Category Report", "Satisfaction Report"].map((t) => <option key={t}>{t}</option>)}
+              </select>
+              <Button size="sm" variant="secondary" icon={Download}>Export PDF/Excel</Button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
+            <KPICard label="Resolution rate" value={`${resRate}%`} icon={TrendingUp} color={COLORS.green} bg={COLORS.greenSoft} />
+            <KPICard label="SLA compliance" value={`${slaCompliance}%`} icon={ShieldCheck} color={COLORS.blue} bg={COLORS.blueSoft} />
+            <KPICard label="Reopen rate" value={`${reopenRate}%`} icon={RotateCcw} color={COLORS.amber} bg={COLORS.amberSoft} />
+            <KPICard label="Avg. satisfaction" value={avgRating === "—" ? avgRating : `${avgRating}★`} icon={Star} color={COLORS.violet} bg={COLORS.violetSoft} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="hd-dash-grid">
+            <Card style={{ padding: 18 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 14.5, marginBottom: 14, color: COLORS.ink }}>Tickets by category</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {byCategory.map((c) => (
+                  <div key={c.name}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3 }}>
+                      <span style={{ color: COLORS.inkSoft }}>{c.name}</span>
+                      <span style={{ fontFamily: FONT_MONO, color: COLORS.ink, fontWeight: 600 }}>{c.count}</span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 4, background: COLORS.bg, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${total ? (c.count / total) * 100 : 0}%`, background: COLORS.primary }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card style={{ padding: 18 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 14.5, marginBottom: 14, color: COLORS.ink }}>Agent performance</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ textAlign: "left" }}>
+                    {["Agent", "Assigned", "Resolved", "Avg. response"].map((h) => (
+                      <th key={h} style={{ fontSize: 10.5, color: COLORS.muted, fontWeight: 700, textTransform: "uppercase", paddingBottom: 8 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {agentStats.map((a) => (
+                    <tr key={a.id} style={{ borderTop: `1px solid ${COLORS.line}` }}>
+                      <td style={{ padding: "8px 0", fontSize: 12.5, color: COLORS.ink, display: "flex", alignItems: "center", gap: 7 }}><Avatar user={a} size={22} />{a.name.split(" ")[0]}</td>
+                      <td style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: COLORS.inkSoft }}>{a.assigned}</td>
+                      <td style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: COLORS.inkSoft }}>{a.resolved}</td>
+                      <td style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: COLORS.inkSoft }}>{a.avgResp != null ? `${a.avgResp}m` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+
+          <Card style={{ padding: 18, marginTop: 16 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 600, fontSize: 13, marginBottom: 6, color: COLORS.ink }}>Formulas used</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: COLORS.muted, lineHeight: 2 }}>
+              Resolution Rate = Resolved ÷ Total × 100<br />
+              SLA Compliance = Resolved Within SLA ÷ Resolved × 100<br />
+              Reopen Rate = Reopened ÷ Resolved × 100
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       PROFILE
+       ====================================================================== */
+    function Profile({ user, onUpdate }) {
+      const [f, setF] = useState({ name: user.name, email: user.email, dept: user.dept || "", position: user.position || "" });
+      const [editing, setEditing] = useState(false);
+      const [saved, setSaved] = useState(false);
+      function save() {
+        onUpdate(f);
+        setEditing(false); setSaved(true);
+        setTimeout(() => setSaved(false), 2200);
+      }
+      return (
+        <div style={{ maxWidth: 520 }}>
+          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 600, margin: "0 0 18px", color: COLORS.ink }}>My Profile</h1>
+          <Card style={{ padding: 22 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+              <Avatar user={user} size={56} />
+              <div>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 600, color: COLORS.ink }}>{user.name}</div>
+                <Badge color={COLORS.primary} bg={COLORS.primarySoft}>{user.role}</Badge>
+              </div>
+            </div>
+            {editing ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <Input label="Full name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+                <Input label="Email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+                <Input label="Department" value={f.dept} onChange={(e) => setF({ ...f, dept: e.target.value })} />
+                <Input label="Position" value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                  <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+                  <Button onClick={save}>Save changes</Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <DetailRow label="Full name" value={user.name} />
+                <DetailRow label="Email" value={user.email} />
+                <DetailRow label="Department" value={user.dept || "—"} />
+                <DetailRow label="Position" value={user.position || "—"} />
+                <DetailRow label="Account status" value={<Badge color={COLORS.green} bg={COLORS.greenSoft}>{user.status}</Badge>} />
+                <Button style={{ marginTop: 14 }} variant="secondary" onClick={() => setEditing(true)}>Edit profile</Button>
+                {saved && <span style={{ marginLeft: 10, fontSize: 12, color: COLORS.green, fontWeight: 600 }}><CheckCircle2 size={13} style={{ verticalAlign: -2, marginRight: 3 }} />Profile updated</span>}
+              </div>
+            )}
+          </Card>
+        </div>
+      );
+    }
+
+    /* ======================================================================
+       ROOT APP
+       ====================================================================== */
+    function App() {
+      const [users, setUsers] = useState(INITIAL_USERS);
+      const [tickets, setTickets] = useState(INITIAL_TICKETS);
+      const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+      const [slaRules, setSlaRules] = useState(INITIAL_SLA_RULES);
+      const [kb, setKb] = useState(INITIAL_KB);
+      const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+
+      const [currentUser, setCurrentUser] = useState(null);
+      const [view, setView] = useState("dashboard");
+      const [activeTicketId, setActiveTicketId] = useState(null);
+      const [showCreate, setShowCreate] = useState(false);
+      const [mobileOpen, setMobileOpen] = useState(false);
+      const seqRef = useRef(5);
+
+      const unread = currentUser ? notifications.filter((n) => n.to === currentUser.id && !n.read).length : 0;
+
+      function handleLogin(user) { setCurrentUser(user); setView("dashboard"); }
+      function handleLogout() { setCurrentUser(null); setActiveTicketId(null); setView("dashboard"); }
+
+      function updateTicket(id, patch) {
+        setTickets((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+      }
+
+      function createTicket({ subject, description, category, priority, attachment }) {
+        seqRef.current += 1;
+        const number = `HD-2026-${String(seqRef.current).padStart(4, "0")}`;
+        const t = makeTicket({
+          id: "t" + Date.now(), number, subject, description, category, priority, status: "New",
+          requester: currentUser.id, createdAt: Date.now(), attachments: attachment ? [attachment] : [],
+        });
+        setTickets((ts) => [t, ...ts]);
+        setNotifications((ns) => [{ id: "n" + Date.now(), to: users.find((u) => u.role === "Team Leader")?.id, text: `New ticket ${number} submitted: ${subject}`, read: false, ts: Date.now() }, ...ns]);
+        setShowCreate(false);
+        setActiveTicketId(t.id);
+        setView("tickets");
+      }
+
+      function openTicket(id) { setActiveTicketId(id); setView("tickets"); }
+      function updateProfile(patch) { setCurrentUser((u) => ({ ...u, ...patch })); setUsers((us) => us.map((u) => (u.id === currentUser.id ? { ...u, ...patch } : u))); }
+
+      if (!currentUser) {
+        return <LoginScreen users={users} onLogin={handleLogin} />;
+      }
+
+      const activeTicket = tickets.find((t) => t.id === activeTicketId);
+
+      let content;
+      if (view === "dashboard") content = <Dashboard user={currentUser} tickets={tickets} users={users} openTicket={openTicket} setView={setView} />;
+      else if (view === "tickets" && activeTicket) content = <TicketDetail ticket={activeTicket} users={users} categories={categories} currentUser={currentUser} onBack={() => setActiveTicketId(null)} onUpdate={updateTicket} />;
+      else if (view === "tickets") content = <TicketList user={currentUser} tickets={tickets} categories={categories} users={users} openTicket={openTicket} onNewTicket={() => setShowCreate(true)} />;
+      else if (view === "kb") content = <KnowledgeBase kb={kb} setKb={setKb} categories={categories} canManage={["Agent", "Team Leader", "Administrator"].includes(currentUser.role)} />;
+      else if (view === "notifications") content = <Notifications notifications={notifications} setNotifications={setNotifications} currentUser={currentUser} />;
+      else if (view === "reports") content = <Reports tickets={tickets} users={users} />;
+      else if (view === "users") content = <UserManagement users={users} setUsers={setUsers} />;
+      else if (view === "categories") content = <CategoryManagement categories={categories} setCategories={setCategories} />;
+      else if (view === "sla") content = <SLAManagement rules={slaRules} setRules={setSlaRules} />;
+      else if (view === "profile") content = <Profile user={currentUser} onUpdate={updateProfile} />;
+
+      return (
+        <div style={{ fontFamily: FONT_BODY, background: COLORS.bg, minHeight: "100vh" }}>
+          <Sidebar view={view} setView={(v) => { setView(v); setActiveTicketId(null); }} user={currentUser} onLogout={handleLogout} unread={unread} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+          <div style={{ marginLeft: 226 }} className="hd-main">
+            <div style={{ display: "none", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${COLORS.line}`, background: "#fff" }} className="hd-topbar">
+              <button onClick={() => setMobileOpen(true)} style={{ background: "none", border: "none", cursor: "pointer" }}><Menu size={20} /></button>
+              <span style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, marginLeft: 10 }}>HelpDeskOS</span>
+            </div>
+            <div style={{ padding: "28px 32px 60px", maxWidth: 1180 }}>
+              {content}
+            </div>
+          </div>
+
+          {showCreate && <CreateTicketModal onClose={() => setShowCreate(false)} onCreate={createTicket} categories={categories} currentUser={currentUser} />}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
